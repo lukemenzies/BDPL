@@ -1,2 +1,2 @@
-# BDPL
-The scripts I created for BDPL
+# BDPLscripts
+Collection of BDPL Scripts and Instructions

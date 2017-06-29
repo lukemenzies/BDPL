@@ -1,0 +1,103 @@
+---------------------------------------------------------------------------------------------------------------------
+INSTRUCTIONS for Using CreateRemoteImage.sh to image disks to a remote server:
+---------------------------------------------------------------------------------------------------------------------
+*Note: This page explains how to create a disk image on a remote server and generate md5 checksums in the appropriate 1received folder, using the shell script CreateRemoteImage.sh. This is used to create images of disks that are too large to be stored on the BDPL computer.
+*Note: A copy of this page is also online at: https://wiki.dlib.indiana.edu/display/DIGIPRES/Creating+a+Disk+Image+on+a+Remote+Server
+
+----------------------------------
+A. SET UP A REMOTE SERVER ACCOUNT
+----------------------------------
+(If you already have an account set up, with a synchronized public key pair, proceed to B, below)
+
+1. Request an additonal account to use an IU server, such as Karst. Search IU's Knowledge Base for how to do this, and follow the instructions given there.
+	*See https://kb.iu.edu/d/achr for more information.
+
+2. Once the account is setup, create an "authorized keys" pair. This will allow you to run ssh without having to login every time.
+	*See https://kb.iu.edu/d/aews for more information.
+- You must be logged in as root, or in a root shell, in order to do this.
+	sudo -s
+*Note: You should "never" run commands as root because you could accidentally botch up your whole system. However, for the sake of privileges, it is sometimes necessary. Be sure to exit the root shell by typing "exit" and hitting <enter> whenever root privileges are not absolutely necessary.
+- There are four steps to this process:
+	(a) Generate a key pair locally, on the BDPL computer.
+		ssh-keygen -t rsa
+	(b) Use scp to copy the public key onto the remote server.
+		scp ~/.ssh/id_rsa.pub username@server.com
+	(c) Move your public key to the .ssh directory, and add your public key to the authorized_keys file on the remote server.
+		ssh username@server.com
+		mv ~/id_rsa.pub ~/.ssh
+		cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+	(d) Check to see if it worked.
+	- Logout of the remote server (ex. type "logout" plus <enter>)
+	- Still within the root shell, try to connect to the remote server. It should not ask for your IU network password.
+		ssh username@server.com
+	- Logout again, when you are done.
+
+------------------
+B. RUN THE SCRIPT
+------------------
+1. Connect the disk to be imaged to the BDPL computer, via the appropriate write-blocking device.
+
+2. Open the "Disks" application and note the location of the device (i.e. /dev/...). You will need to enter the last part of the location to run the script.
+	ex. If your device is listed as /dev/sdb1 you will need to remember "sdb1"
+
+3. Open the terminal, sudo -s, and navigate to the directory that contains the shell script (ex. ~/Documents/scripts)
+*Note: As mentioned above, you should "never" run commands as root because you could accidentally botch up your whole system. However, for the sake of privileges, it is sometimes necessary. Be sure to exit the root shell by typing "exit" and hitting <enter> whenever root privileges are not absolutely necessary.
+	sudo -s
+	cd ~/Documents/scripts
+- The sudo -s command creates a sub-shell in which you are the root user. This is necessary for the authorized keys pair to work, so that the script can run ssh without needing a login.
+
+4. Run the script
+	bash CreateRemoteImage.sh
+(a) You will be prompted to enter the following:
+	[1] The device to be imaged (ex. "sdb1")
+	- Do not include "/dev/".
+	- Do not add any slashes "/".
+	*Note: CreateRemoteImage.sh assumes that your device is located at /dev/... on the BDPL computer.
+	[2] The username and server on which to create the disk image (ex. "username@server.uits.iu.edu")
+	- This user account must be set up already with an authorized key pair, as mentioned in "A" above.
+	[3] The BDPL accession number (ex. "UAC0520160200")
+	- Do not add any suffixes to this.
+	- The script will create a folder with this accession number as its title on both the BDPL computer and the remote server.
+	[4] The directory in which the script will put the disk image (ex. "~/BDPL/Images")
+	- This is the directory on the remote server where the script will create the folder with the BDPL accession number as its title.
+	*Note: Do not enter a final slash "/".
+	*Note: If you do not use the tilde "~" symbol to indicate your home directory, use an initial slash (ex. "/n/N/username/home/BDPL/Images").
+(b) Next, the script will ask you if you want ~/Documents/1received as your directory on the BDPL computer. This is the default directory (i.e. folder). 
+- If you want to put the md5 checksums in a different folder on the BDPL computer, enter "n", and you will be prompted to enter a different directory.
+*Note: Do not enter a final slash "/".
+*Note: If you do not use the tilde "~" symbol to indicate your home directory, use an initial slash (ex. "/home/bcadmin/Desktop/test").
+(c) The creation of the disk image may take several minutes or hours, depending on how large the original device is.
+(d) Finally, when the script is done creating the compressed image and checksums, it will ask if you want to compare two checksums.
+- This is a comparison between the checksum recorded on the BDPL computer for the compressed disk image, and a checksum that is run on the compressed disk image located on the remote server. The purpose is to see if the disk image was somehow changed in transit via ssh.
+- The two checksums will be displayed on the screen, where you can see if they're the same.
+- To run the check, hit "y" and <enter>. If you do not want to run this check, enter "n" and the <enter> key, and the script will quit.
+- If nothing is entered after 10min. (for instance, if you let the script run overnight), the script will timeout and quit.
+*Note: If your disk image is very large, this process may take several minutes (for a 21GB disk image, it took about 5-10 min.).
+
+5. Exit the root shell, and check to see that the proper directories, folders, and files, are in their proper places.
+- To exit the root shell, just type "exit" and hit <enter>.
+- Your BDPL folder/directory (ex. ~/Documents/1received) should contain a folder, named with the BDPL accession number, that contains two checksums. The remote server will have a folder, with the same name, that contains the compressed disk image.
+	ex. 	(on the BDPL computer)	~/Documents/1received/UAC0520160200/UAC0520160200.comprssd.md5
+					~/Documents/1received/UAC0520160200/UAC0520160200.uncomprssd.md5
+		(on the remote server)	~/BDPL/Images/UAC0520160200/UAC0520160200.dd.gz
+- The md5 files should be 36bytes.
+
+6. Create the accession info template and edit the Media Log. 
+- Place a copy of the BDPL accession info template (ex. UAC0520160200-info.txt) into the folder with the md5 checksums, on the BDPL computer, and edit the entries accordingly. Mention the location of the image in the "Notes:" section.
+- Edit the Media Log file.
+
+---------------------------------------------------------------------------------------------------------------------
+NOTES about the CreateRemoteImage.sh script, what it does, etc.
+---------------------------------------------------------------------------------------------------------------------
+- This script runs three commands, overall: dd, md5sum, and diff. It creates a compressed (zipped) raw (.dd) disk image in a directory on a remote server, and generates two md5 checksums "on the fly": one for the uncompressed disk image, the other for the compressed image. Doing this while creating the image and depositing it via ssh saves time, which makes a difference for especially large disk images.
+- The commands ran ok at first, when run directly from the command line, but did not work on larger disk images. Thus, one reason to put them into a shell script was to split the long dd command with several tee's onto separate lines (in addition to making it easier for the user to run).
+
+- These are the two standalone commands:
+
+sudo dd if=/dev/sdd | tee >(gzip -c | tee >( ssh lmenzies@karst.uits.iu.edu "cat > ~/BDPL/test/ScanSoft.dd.gz") | md5sum > ~/Desktop/test/ScanSoft/ScanSoft.compressed.md5) | md5sum > ~/Desktop/test/ScanSoft/ScanSoft.original.md5
+
+diff -u $base.compressed.md5 <(ssh user@karst "md5sum $base.dd.gz")
+
+- The first command creates the disk image and two md5 checksums. The second one compares a checksum generated during imaging with one it generates based on the final disk image, in order to see if any changes happened to the file in transit.
+
+
